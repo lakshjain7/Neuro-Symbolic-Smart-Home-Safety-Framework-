@@ -346,7 +346,7 @@ We welcome contributions! Please follow these guidelines:
 
 ## Documentation
 
-* **[Graph_Transformer.ipynb](https://www.google.com/search?q=Graph_Transformer.ipynb)** - Interactive implementation containing the entire end-to-end framework, models, and exploratory visualizations.
+* **[Graph_Transformer.ipynb](./Graph_Transformer.ipynb)** - Interactive implementation containing the entire end-to-end framework, models, and exploratory visualizations.
 
 ---
 
@@ -365,7 +365,7 @@ This framework implements concepts from:
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](https://www.google.com/search?q=LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
 
 ---
 
@@ -387,7 +387,7 @@ If you use this framework in your research, please cite:
   title={Neuro-Symbolic Smart-Home Safety Framework},
   author={Jain, Laksh},
   year={2026},
-  url={[https://github.com/lakshjain7/Neuro-Symbolic-Smart-Home-Safety-Framework-](https://github.com/lakshjain7/Neuro-Symbolic-Smart-Home-Safety-Framework-)}
+  url={https://github.com/lakshjain7/Neuro-Symbolic-Smart-Home-Safety-Framework-}
 }
 
 ```
