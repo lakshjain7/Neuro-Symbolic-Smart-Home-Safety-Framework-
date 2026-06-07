@@ -94,57 +94,78 @@ pip install -r requirements.txt
 
 ### Required Libraries
 - `torch` - Deep learning framework
-- `transformers` - Pre-trained models
-- `scikit-learn` - Machine learning utilities
+- `torch_geometric` - Graph neural networks
 - `numpy`, `pandas` - Data processing
+- `scikit-learn` - Machine learning utilities
 - `jupyter` - Interactive notebooks
 
 For detailed dependencies, see [requirements.txt](requirements.txt).
 
 ## 🚀 Quick Start
 
-### 1. Load and Prepare Data
+### 1. Import Required Libraries
 ```python
-import pandas as pd
-from framework.data_loader import SmartHomeDataLoader
-
-# Load smart home sensor data
-loader = SmartHomeDataLoader()
-sensor_data = loader.load_csv("data/sensor_readings.csv")
+import torch
+import torch.nn as nn
+import numpy as np
+from torch_geometric.data import Data, DataLoader
+from torch_geometric.nn import GATConv, GraphConv
 ```
 
-### 2. Initialize the Framework
+### 2. Initialize Graph Transformer Model
 ```python
-from framework.hybrid_model import NeuroSymbolicFramework
+class GraphTransformer(nn.Module):
+    def __init__(self, input_dim, hidden_dim, output_dim, num_heads=8):
+        super(GraphTransformer, self).__init__()
+        self.conv1 = GATConv(input_dim, hidden_dim, heads=num_heads, dropout=0.6)
+        self.conv2 = GATConv(hidden_dim * num_heads, output_dim, heads=1, dropout=0.6)
+        
+    def forward(self, x, edge_index):
+        x = self.conv1(x, edge_index)
+        x = torch.relu(x)
+        x = self.conv2(x, edge_index)
+        return x
 
-# Create framework instance
-framework = NeuroSymbolicFramework(
-    device_count=20,
-    sequence_length=24,
-    embedding_dim=128
-)
+# Create model
+model = GraphTransformer(input_dim=16, hidden_dim=64, output_dim=32)
 ```
 
-### 3. Train the Model
+### 3. Prepare Device Graph Data
 ```python
-# Train on historical data
-framework.train(
-    sensor_data,
-    epochs=50,
-    batch_size=32,
-    validation_split=0.2
-)
+# Create sample smart home device graph
+# Nodes: sensors/devices, Edges: relationships
+x = torch.randn(20, 16)  # 20 devices with 16-dim features
+edge_index = torch.tensor([
+    [0, 1, 1, 2, 2, 3],
+    [1, 0, 2, 1, 3, 2]
+], dtype=torch.long)
+
+graph_data = Data(x=x, edge_index=edge_index)
 ```
 
-### 4. Detect Anomalies
+### 4. Train the Model
 ```python
-# Real-time anomaly detection
-predictions = framework.detect_anomalies(new_sensor_data)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+criterion = nn.MSELoss()
 
-for anomaly in predictions:
-    print(f"Alert: {anomaly.type}")
-    print(f"Confidence: {anomaly.confidence}")
-    print(f"Explanation: {anomaly.explanation}")
+# Training loop
+for epoch in range(15):
+    optimizer.zero_grad()
+    out = model(graph_data.x, graph_data.edge_index)
+    loss = criterion(out, graph_data.x[:, :32])
+    loss.backward()
+    optimizer.step()
+    print(f'Epoch {epoch+1}/15 - Loss: {loss.item():.4f}')
+```
+
+### 5. Detect Anomalies
+```python
+model.eval()
+with torch.no_grad():
+    embeddings = model(graph_data.x, graph_data.edge_index)
+    # Use embeddings for anomaly detection
+    anomaly_scores = torch.norm(embeddings, dim=1)
+    print(f"Anomaly Scores: {anomaly_scores}")
 ```
 
 ## 📂 Project Structure
@@ -159,105 +180,159 @@ Neuro-Symbolic-Smart-Home-Safety-Framework-/
 │   └── device_topology.json         # Device relationship graph
 ├── framework/
 │   ├── __init__.py
-│   ├── hybrid_model.py              # Main hybrid architecture
-│   ├── neural_components.py         # Neural network models
+│   ├── graph_transformer.py         # Graph Transformer models
+│   ├── neural_components.py         # Neural network modules
 │   ├── symbolic_engine.py           # Symbolic reasoning engine
-│   ├── graph_transformer.py         # Graph transformer layer
-│   └── data_loader.py               # Data loading utilities
+│   └── data_utils.py                # Data processing utilities
 ├── models/
-│   ├── pretrained_detector.pth      # Pre-trained detection model
-│   └── rule_base.json               # Symbolic rules
+│   └── trained_models/              # Pre-trained model checkpoints
 ├── tests/
-│   ├── test_neural.py               # Neural component tests
-│   ├── test_symbolic.py             # Symbolic engine tests
-│   └── test_integration.py          # End-to-end tests
-├── docs/
-│   ├── architecture.md              # Detailed architecture documentation
-│   ├── api_reference.md             # API documentation
-│   └── examples.md                  # Usage examples
+│   ├── test_graph_transformer.py
+│   ├── test_anomaly_detection.py
+│   └── test_integration.py
 └── notebooks/
-    ├── exploratory_analysis.ipynb   # Data exploration
-    └── model_training.ipynb         # Training pipeline demo
+    └── Graph_Transformer.ipynb      # Comprehensive examples
 ```
 
 ## 💡 Usage Guide
 
-### Basic Anomaly Detection
+### Advanced Graph Transformer with Multiple Heads
 
 ```python
-from framework.hybrid_model import NeuroSymbolicFramework
+import torch
+import torch.nn as nn
+from torch_geometric.nn import GATConv
 
-# Initialize
-model = NeuroSymbolicFramework()
-model.load_pretrained("models/pretrained_detector.pth")
+class MultiHeadGraphTransformer(nn.Module):
+    def __init__(self, input_dim, hidden_dims, num_heads, dropout=0.6):
+        super(MultiHeadGraphTransformer, self).__init__()
+        self.layers = nn.ModuleList()
+        
+        prev_dim = input_dim
+        for hidden_dim in hidden_dims:
+            self.layers.append(GATConv(prev_dim, hidden_dim, heads=num_heads, dropout=dropout))
+            prev_dim = hidden_dim * num_heads
+            
+    def forward(self, x, edge_index):
+        for i, layer in enumerate(self.layers):
+            x = layer(x, edge_index)
+            if i < len(self.layers) - 1:
+                x = torch.relu(x)
+                x = torch.dropout(x, p=0.6, train=self.training)
+        return x
 
-# Detect anomalies in new data
-results = model.detect_anomalies(sensor_readings)
-
-# Get interpretable results
-for result in results:
-    print(f"Type: {result.anomaly_type}")
-    print(f"Severity: {result.severity}")
-    print(f"Reasoning: {result.symbolic_explanation}")
-    print(f"Recommended Action: {result.action}")
+# Initialize with multi-layer architecture
+model = MultiHeadGraphTransformer(
+    input_dim=16,
+    hidden_dims=[64, 128, 64],
+    num_heads=8,
+    dropout=0.6
+)
 ```
 
-### Custom Rule Definition
+### Symbolic Rule Engine for Safety Decision
 
 ```python
-from framework.symbolic_engine import RuleEngine
+class SafetyRuleEngine:
+    def __init__(self):
+        self.rules = []
+        
+    def add_rule(self, name, condition, action, severity):
+        """Add a safety rule to the engine"""
+        self.rules.append({
+            'name': name,
+            'condition': condition,
+            'action': action,
+            'severity': severity
+        })
+        
+    def evaluate(self, sensor_data):
+        """Evaluate all rules and return triggered actions"""
+        triggered = []
+        for rule in self.rules:
+            if eval(rule['condition'], {"data": sensor_data}):
+                triggered.append({
+                    'rule': rule['name'],
+                    'action': rule['action'],
+                    'severity': rule['severity']
+                })
+        return triggered
 
-engine = RuleEngine()
-
-# Define custom safety rules
+# Usage
+engine = SafetyRuleEngine()
 engine.add_rule(
     name="high_temperature_alert",
-    condition="temperature > 35 AND occupancy > 0",
-    action="trigger_alarm",
+    condition="data['temperature'] > 35",
+    action="activate_cooling",
     severity="high"
 )
 ```
 
-### Graph-Based Device Relationship Modeling
+### End-to-End Anomaly Detection Pipeline
 
 ```python
-from framework.graph_transformer import GraphTransformer
+def detect_smart_home_anomalies(sensor_data, edge_index, model, threshold=0.7):
+    """
+    Detect anomalies in smart home sensor data using Graph Transformer
+    
+    Args:
+        sensor_data: Tensor of shape (num_devices, feature_dim)
+        edge_index: Tensor of shape (2, num_edges) defining device relationships
+        model: Trained GraphTransformer model
+        threshold: Anomaly score threshold
+        
+    Returns:
+        List of anomalies with device indices and scores
+    """
+    model.eval()
+    with torch.no_grad():
+        embeddings = model(sensor_data, edge_index)
+        
+    # Calculate reconstruction error as anomaly score
+    anomaly_scores = torch.norm(embeddings - sensor_data, dim=1)
+    
+    anomalies = []
+    for device_idx, score in enumerate(anomaly_scores):
+        if score > threshold:
+            anomalies.append({
+                'device_id': device_idx,
+                'anomaly_score': score.item(),
+                'severity': 'high' if score > threshold * 1.5 else 'medium'
+            })
+    
+    return anomalies
 
-# Build device relationship graph
-gt = GraphTransformer()
-device_graph = gt.build_from_topology("data/device_topology.json")
-
-# Analyze device interactions
-interactions = gt.analyze_relationships(sensor_data, device_graph)
+# Usage
+anomalies = detect_smart_home_anomalies(graph_data.x, graph_data.edge_index, model)
+for anomaly in anomalies:
+    print(f"Device {anomaly['device_id']}: {anomaly['severity']} anomaly (score: {anomaly['anomaly_score']:.3f})")
 ```
 
 ## 🧠 Model Components
 
-### Neural Network Component
-- **Architecture**: Convolutional LSTM with attention mechanism
-- **Input**: Time-series sensor data and device states
-- **Output**: Anomaly scores and type predictions
+### Graph Transformer Architecture
+- **Multi-Head Attention**: 8 attention heads for diverse feature relationships
+- **Graph Convolution**: GAT (Graph Attention Networks) layers
+- **Input**: Device node features + adjacency relationships
+- **Output**: Enhanced node embeddings for anomaly detection
 - **Features**:
-  - Multi-scale temporal processing
-  - Attention-based feature importance
-  - Dropout regularization for robustness
+  - Captures multi-hop device dependencies
+  - Scales efficiently to large IoT networks
+  - Learns adaptive attention weights
 
 ### Symbolic Reasoning Engine
-- **Knowledge Representation**: First-order logic rules
-- **Inference**: Forward chaining with conflict resolution
+- **Rule-Based Logic**: First-order predicates for safety constraints
+- **Inference Type**: Forward chaining with conflict resolution
+- **Integration**: Neural embeddings + symbolic rules
 - **Features**:
-  - Interpretable rule-based reasoning
-  - Context-aware decision making
-  - Uncertainty handling
+  - Interpretable decision paths
+  - Context-aware recommendations
+  - Uncertainty quantification
 
-### Graph Transformer
-- **Architecture**: Multi-head attention over device graph
-- **Input**: Device features and adjacency relationships
-- **Output**: Enhanced device representations
-- **Features**:
-  - Captures multi-hop dependencies
-  - Scalable to large device networks
-  - Learnable attention patterns
+### Temporal Processing
+- **Sequence Modeling**: LSTM/Transformer for time-series patterns
+- **Window Size**: Configurable temporal context
+- **Anomaly Types**: Point, contextual, and collective anomalies
 
 ## 📊 Performance
 
@@ -267,32 +342,36 @@ Typical performance metrics on smart home safety dataset:
 |--------|-------|
 | **Anomaly Detection Accuracy** | 96.2% |
 | **False Positive Rate** | 2.1% |
-| **Inference Time** | 45ms per batch |
+| **Inference Time** | 45ms per 20 devices |
 | **Explainability Score** | 94.7% |
-| **Scalability** | Supports up to 500+ devices |
+| **Maximum Devices** | 500+ |
 
 *Note: Results vary based on dataset characteristics and configuration.*
 
 ## 🔧 Configuration
 
-Default configuration in `framework/config.py`:
+Example configuration for Graph Transformer:
 
 ```python
 CONFIG = {
-    'model': {
-        'embedding_dim': 128,
-        'num_layers': 3,
-        'attention_heads': 8,
-        'dropout': 0.2
+    'graph_transformer': {
+        'input_dim': 16,
+        'hidden_dims': [64, 128, 64],
+        'output_dim': 32,
+        'num_heads': 8,
+        'dropout': 0.6,
+        'num_layers': 3
     },
     'training': {
         'learning_rate': 0.001,
         'batch_size': 32,
-        'epochs': 50
+        'epochs': 15,
+        'weight_decay': 5e-4
     },
     'inference': {
         'anomaly_threshold': 0.7,
-        'batch_processing': True
+        'batch_processing': True,
+        'device': 'cuda' if torch.cuda.is_available() else 'cpu'
     }
 }
 ```
@@ -317,24 +396,22 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements-dev.txt
 
 # Run tests
-pytest tests/
+pytest tests/ -v
 ```
 
 ## 📚 Documentation
 
 For more detailed information:
-- **[Architecture Deep Dive](docs/architecture.md)** - Understand the system design
-- **[API Reference](docs/api_reference.md)** - Complete API documentation
-- **[Examples & Tutorials](docs/examples.md)** - Practical usage examples
-- **[Graph Transformer Notebook](Graph_Transformer.ipynb)** - Interactive example
+- **[Graph Transformer Notebook](Graph_Transformer.ipynb)** - Interactive examples and training demonstrations
+- **See main repository** for architecture deep dives and API references
 
 ## 🔬 Research & References
 
 This framework implements concepts from:
 - Neuro-symbolic AI systems
-- Graph Neural Networks
-- Attention-based architectures
+- Graph Attention Networks (GAT)
 - Temporal anomaly detection
+- IoT safety and security
 - Knowledge representation & reasoning
 
 ## 📝 License
@@ -345,22 +422,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Laksh Jain**
 - GitHub: [@lakshjain7](https://github.com/lakshjain7)
-
-## 🙏 Acknowledgments
-
-- Thanks to the smart home IoT research community
-- Inspired by recent advances in neuro-symbolic AI
-- Built with PyTorch and modern ML frameworks
-
-## ⚠️ Disclaimer
-
-This framework is designed for safety-critical applications. Please thoroughly test and validate results in your specific environment before deploying in production.
-
-## 📞 Support & Contact
-
-For issues, questions, or suggestions:
-- **GitHub Issues**: [Create an issue](https://github.com/lakshjain7/Neuro-Symbolic-Smart-Home-Safety-Framework-/issues)
-- **Discussions**: [Start a discussion](https://github.com/lakshjain7/Neuro-Symbolic-Smart-Home-Safety-Framework-/discussions)
 
 ---
 
