@@ -1,0 +1,51 @@
+# Default registry for the 3-node testbed: one meter per socket, each socket
+# feeds an extension board with several appliances. All values are placeholders
+# until the hardware report arrives; edit this file, not the code.
+sample_period_s: 1.0
+supply:
+  nominal_v: 230.0
+  nominal_hz: 50.0
+  shared_resistance_ohm: 0.20     # wiring drop common to the whole board (single circuit)
+zones:
+  - id: zone_a
+    meter: m_a
+    rated_w: 1500                 # lowest of module / socket / extension-board rating
+    own_resistance_ohm: 0.10
+    appliances:
+      - {id: heater, levels_w: [0, 900],  pf: 1.00, noise_w: 6.0}
+      - {id: fan,    levels_w: [0, 55],   pf: 0.85, noise_w: 1.5}
+  - id: zone_b
+    meter: m_b
+    rated_w: 1500
+    own_resistance_ohm: 0.10
+    appliances:
+      - {id: kettle, levels_w: [0, 1200], pf: 1.00, noise_w: 8.0}
+      - {id: lamp,   levels_w: [0, 12],   pf: 0.95, noise_w: 0.5}
+  - id: zone_c
+    meter: m_c
+    rated_w: 1500
+    own_resistance_ohm: 0.10
+    appliances:
+      - {id: charger, levels_w: [0, 25],  pf: 0.60, noise_w: 1.0}
+      - {id: monitor, levels_w: [0, 40],  pf: 0.90, noise_w: 1.0}
+meter:                            # PZEM-like noise model (placeholder, calibrate in E0)
+  v_noise: 0.15
+  p_noise_w: 0.4
+  i_noise_a: 0.002
+  min_power_w: 1.0                # readings below this are reported as 0
+safety:
+  max_zone_w: 1400                # enforced when compiling schedules
+  max_total_w: 2800
+routines:                         # time-of-day weight (24 values) and duration range (s)
+  heater:  {rate_per_hour: 1.2, duration_s: [300, 900],  hours: [0,0,0,0,0,0,2,3,2,1,1,1,1,1,1,1,1,2,3,3,2,1,0,0]}
+  fan:     {rate_per_hour: 1.5, duration_s: [600, 1800], hours: [0,0,0,0,0,0,1,1,1,2,2,2,2,2,2,2,2,2,2,2,1,1,0,0]}
+  kettle:  {rate_per_hour: 1.0, duration_s: [120, 240],  hours: [0,0,0,0,0,0,3,3,1,1,1,1,2,1,1,1,2,3,2,1,1,0,0,0]}
+  lamp:    {rate_per_hour: 1.0, duration_s: [900, 3600], hours: [0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,1,3,3,3,2,1,0,0]}
+  charger: {rate_per_hour: 0.8, duration_s: [1200, 3600],hours: [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]}
+  monitor: {rate_per_hour: 1.0, duration_s: [900, 2700], hours: [0,0,0,0,0,0,0,1,2,3,3,3,3,3,3,3,2,1,1,0,0,0,0,0]}
+# Planted relations: used by the generator and as EVALUATION labels only.
+# They must never be given to a model as input.
+relations:
+  - {type: trigger,   source: heater, target: lamp,    delay_s: 120, jitter_s: 30, prob: 0.8}
+  - {type: trigger,   source: kettle, target: monitor, delay_s: 60,  jitter_s: 20, prob: 0.7}
+  - {type: exclusion, a: heater, b: kettle}
